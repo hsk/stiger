@@ -1,0 +1,496 @@
+package Parse;
+
+action code {:
+/*
+	static Symbol.Symbol sym(String s) {
+		return Symbol.Symbol.symbol(s);
+	}
+	*/
+	public int P() { return 0; }
+:};
+
+parser code  {: 
+  public Absyn.Exp parseResult;
+  Lexer lexer;
+
+  public void syntax_error(java_cup.runtime.Symbol current) {
+   report_error("Syntax error (" + current.sym + ")", current);
+  }
+
+  ErrorMsg.ErrorMsg errorMsg;
+
+  public void report_error(String message, 
+			   java_cup.runtime.Symbol info) {
+      errorMsg.error(info.left, message);
+  }
+
+  public Grm(Lexer l, ErrorMsg.ErrorMsg err) {
+    this();
+    errorMsg=err;
+    lexer=l;
+  }
+:};
+
+scan with {: return lexer.nextToken(); :};
+
+terminal String ID, STRING;
+terminal Integer INT;
+terminal COMMA, COLON, SEMICOLON, LPAREN, RPAREN, 
+	LBRACK, RBRACK, LBRACE, RBRACE, DOT, PLUS, MINUS, 
+	TIMES, DIVIDE, EQ, NEQ, LT, LE, GT, GE, AND, OR, 
+	ASSIGN, ARRAY, IF, THEN, ELSE, WHILE, FOR, TO, DO, 
+	LET, IN, END, OF, BREAK, NIL, FUNCTION, VAR, TYPE;
+
+non terminal program, exp, explist, args, rec_fields, decs, dec, ty, id, tyfields,
+	tyfield, vardec, fundec, l_value ;
+
+
+precedence nonassoc THEN ;
+precedence left ELSE;
+precedence left OR, AND, EQ, LT, LE, GT, GE, NEQ, PLUS, MINUS, TIMES, DIVIDE;
+
+start with program;
+
+program ::= exp:_1 {:
+		RESULT = _1;
+	:}
+;
+
+exp ::= INT:_1 {:
+		RESULT = new Absyn.IntExp(
+			_1,
+			P()
+		);
+	:}
+	| LPAREN RPAREN {:
+		RESULT = new Absyn.UnitExp(
+			P()
+		);
+	:}
+	| NIL {:
+		RESULT = new Absyn.NilExp(
+			P()
+		);
+	:}
+	| STRING:_1 {:
+		RESULT = new Absyn.StringExp(
+			_1,
+			P()
+		);
+	:}
+	| BREAK {:
+		RESULT = new Absyn.BreakExp(
+			P()
+		);
+	:}
+	| l_value:_1 {:
+		RESULT = new Absyn.VarExp(
+			(Absyn.Var)_1,
+			P()
+		);
+	:}
+	| l_value:_1 ASSIGN exp:_3 {:
+		RESULT = new Absyn.AssignExp(
+			(Absyn.Var)_1,
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| LPAREN exp:_2 SEMICOLON explist:_4 RPAREN {:
+		RESULT = new Absyn.SeqExp(
+			Absyn.addList(
+				(Absyn.Exp)_2,
+				(scala.List<Absyn.Exp>)_4
+			),
+			P()
+		);
+	:}
+	| exp:_1 OR exp:_3 {:
+		RESULT = new Absyn.IfExp(
+			(Absyn.Exp)_1,
+			new Absyn.IntExp(1, P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| exp:_1 AND exp:_3 {:
+		RESULT = new Absyn.IfExp(
+			(Absyn.Exp)_1,
+			(Absyn.Exp)_3,
+			new Absyn.IntExp(0, P()),
+			P()
+		);
+	:}
+	| exp:_1 EQ exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.EqOp(P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| exp:_1 LT exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.LtOp(P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| exp:_1 LE exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.LeOp(P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| exp:_1 GT exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.GtOp(P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| exp:_1 GE exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.GeOp(P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| exp:_1 NEQ exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.NeqOp(P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| exp:_1 PLUS exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.PlusOp(P()),
+			(Absyn.Exp)_3, P()
+		);
+	:}
+	| exp:_1 MINUS exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.MinusOp(P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| exp:_1 TIMES exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.TimesOp(P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| exp:_1 DIVIDE exp:_3 {:
+		RESULT = new Absyn.OpExp(
+			(Absyn.Exp)_1,
+			new Absyn.DivideOp(P()),
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+	| MINUS exp:_2 {:
+		RESULT = new Absyn.OpExp(
+			new Absyn.IntExp(0, P()),
+			new Absyn.MinusOp(P()),
+			(Absyn.Exp)_2,
+			P()
+		);
+	:}
+	| LPAREN exp:_2 RPAREN {:
+		RESULT = (Absyn.Exp)_2;
+	:}
+	| id:_1 LPAREN args:_3 RPAREN {:
+		RESULT = new Absyn.CallExp(
+			(scala.Symbol)_1,
+			(scala.List<Absyn.Exp>)_3,
+			P()
+		);
+	:}
+	| IF exp:_2 THEN exp:_4 {:
+		RESULT = new Absyn.IfExp(
+			(Absyn.Exp)_2,
+			(Absyn.Exp)_4,
+			null,
+			P()
+		);
+	:}
+	| IF exp:_2 THEN exp:_4 ELSE exp:_6 {:
+		RESULT = new Absyn.IfExp(
+			(Absyn.Exp)_2,
+			(Absyn.Exp)_4,
+			(Absyn.Exp)_6,
+			P()
+		);
+	:}
+	| WHILE exp:_2 DO exp:_4 {:
+		RESULT = new Absyn.WhileExp(
+			(Absyn.Exp)_2,
+			(Absyn.Exp)_4,
+			P()
+		);
+	:}
+	| FOR id:_2 ASSIGN exp:_4 TO exp:_6 DO exp:_8 {:
+		RESULT = new Absyn.ForExp(
+			(scala.Symbol)_2,
+			false,
+			(Absyn.Exp)_4,
+			(Absyn.Exp)_6,
+			(Absyn.Exp)_8,
+			P()
+		);
+	:}
+	| LET decs:_2 IN END {:
+		RESULT = new Absyn.LetExp(
+			(scala.List<Absyn.Dec>)_2, 
+			new Absyn.UnitExp(P()),
+			P()
+		);
+	:}
+	| LET decs:_2 IN exp:_4 END {:
+		RESULT = new Absyn.LetExp(
+			(scala.List<Absyn.Dec>)_2,
+			(Absyn.Exp)_4,
+			P()
+		);
+	:}
+	| LET decs:_2 IN exp:_4 SEMICOLON explist:_6 END {:
+		RESULT = new Absyn.LetExp(
+			(scala.List<Absyn.Dec>)_2,
+			new Absyn.SeqExp(
+				Absyn.addList(
+					(Absyn.Exp)_4,
+					(scala.List<Absyn.Exp>)_6
+				),
+				P()
+			),
+			P()
+		);
+	:}
+	| l_value:_1 LBRACK exp:_3 RBRACK OF exp:_6 {:
+		RESULT = new Absyn.ArrayExp(
+			(scala.Symbol)_1, 
+			(Absyn.Exp)_3,
+			(Absyn.Exp)_6,
+			P()
+		);
+	:}
+	| id:_1 LBRACE rec_fields:_3 RBRACE {:
+		RESULT = new Absyn.RecordExp(
+			(scala.List<scala.Tuple3<scala.Symbol,Absyn.Exp,Integer>>)_3,
+			(scala.Symbol)_1,
+			P()
+		);
+	:}
+;
+
+explist ::= exp:_1 SEMICOLON explist:_3 {:
+		RESULT = Absyn.addList(
+			(Absyn.Exp)_1,
+			(scala.List<Absyn.Exp>)_3
+		);
+	:}
+	| exp:_1 {:
+		RESULT = Absyn.list((Absyn.Exp)_1);
+	:}
+;
+
+args ::= {:
+		RESULT = Absyn.list();
+	:}
+	| exp:_1 COMMA args:_3 {:
+		RESULT = Absyn.addList(
+			(Absyn.Exp)_1,
+			(scala.List<Absyn.Exp>)_3
+		);
+	:}
+	| exp:_1 {:
+		RESULT = Absyn.list((Absyn.Exp)_1);
+	:}
+;
+
+rec_fields ::= {:
+		RESULT = Absyn.list();
+	:}
+	| id:_1 EQ exp:_3 COMMA rec_fields:_5 {:
+		RESULT = Absyn.addList(
+			new scala.Tuple2<scala.Symbol, Absyn.Exp>(
+				(scala.Symbol)_1,
+				(Absyn.Exp)_3
+			),
+			(scala.List<scala.Tuple2<scala.Symbol, Absyn.Exp>>)_5
+		);
+	:}
+	| id:_1 EQ exp:_3 {:
+		RESULT = Absyn.list(
+			new scala.Tuple2<scala.Symbol, Absyn.Exp>(
+				(scala.Symbol)_1,
+				(Absyn.Exp)_3
+			)
+		);
+	:}
+;
+
+/* Declaraciones */
+
+decs ::= {:
+		RESULT = Absyn.listDec();
+	:}
+	| dec:_1 decs:_2 {:
+		RESULT = Absyn.addList(
+			(Absyn.Dec)_1,
+			(scala.List<Absyn.Dec>)_2
+		);
+	:}
+;
+
+
+/* Declaracion de Types */
+
+dec ::= TYPE id:_2 EQ ty:_4 {:
+		RESULT = new Absyn.TypeDec(
+			(scala.Symbol)_2,
+			(Absyn.Ty)_4,
+			P()
+		);
+	:}
+	| vardec:_1 {:
+		RESULT = (Absyn.Dec)_1;
+	:}
+	| fundec:_1 {:
+		RESULT = (Absyn.Dec)_1;
+	:}
+;
+
+ty ::= id:_1 {:
+		RESULT = new Absyn.NameTy(
+			(scala.Symbol)_1,
+			P()
+		);
+	:}
+	| LBRACE tyfields:_2 RBRACE	{:
+		RESULT = new Absyn.RecordTy(
+			(scala.List<Absyn.TyField>)_2,
+			P()
+		);
+	:}
+	| ARRAY OF id:_3 {:
+		RESULT = new Absyn.ArrayTy(
+			(scala.Symbol)_3,
+			P()
+		);
+	:}
+;
+
+id ::= ID:_1 {:
+		RESULT = new scala.Symbol(
+			_1
+		);
+	:}
+;
+
+tyfields ::= {:
+		RESULT = Absyn.listTyFields();
+	:}
+	| tyfield:_1 COMMA tyfields:_3 {:
+		RESULT = Absyn.addList(
+			(Absyn.TyField)_1,
+			(scala.List<Absyn.TyField>)_3
+		);
+	:}
+	| tyfield:_1 {:
+		RESULT = Absyn.list(
+			(Absyn.TyField)_1
+		);
+	:}
+;
+
+tyfield ::= id:_1 COLON id:_3 {:
+		RESULT = new Absyn.TyField(
+			false,
+			(scala.Symbol)_1,
+			new Absyn.NameTy(
+				(scala.Symbol)_3,
+				P()
+			),
+			P()
+		);
+	:}
+;
+
+/* Declaracion of variables */
+
+vardec ::= VAR id:_2 ASSIGN exp:_4 {:
+		RESULT = new Absyn.VarDec(
+			(scala.Symbol)_2,
+			false,
+			(scala.Symbol)null,
+			(Absyn.Exp)_4,
+			P()
+		);
+	:}
+	| VAR id:_2 COLON id:_4 ASSIGN exp:_6 {:
+		RESULT = new Absyn.VarDec(
+			(scala.Symbol)_2,
+			false,
+			(scala.Symbol)_4,
+			(Absyn.Exp)_6,
+			P()
+		);
+	:}
+;
+
+/* Declaracion of funcion */
+
+fundec ::= FUNCTION id:_2 LPAREN tyfields:_4 RPAREN EQ exp:_7 {:
+		RESULT = new Absyn.FunctionDec(
+			(scala.Symbol)_2,
+			(scala.List<Absyn.TyField>)_4,
+			(scala.Symbol)null,
+			(Absyn.Exp)_7,
+			P()
+		);
+	:}
+	| FUNCTION id:_2 LPAREN tyfields:_4 RPAREN COLON id:_7 EQ exp:_9 {:
+		RESULT = new Absyn.FunctionDec(
+			(scala.Symbol)_2,
+			(scala.List<Absyn.TyField>)_4,
+			(scala.Symbol)_7,
+			(Absyn.Exp)_9,
+			P()
+		);
+	:}
+;
+
+l_value ::= id:_1 {:
+		RESULT = new Absyn.SimpleVar(
+			(scala.Symbol)_1,
+			P()
+		);
+	:}
+	| l_value:_1 DOT id:_3 {:
+		RESULT = new Absyn.FieldVar(
+			(Absyn.Var)_1,
+			(scala.Symbol)_3,
+			P()
+		);
+	:}
+	| l_value:_1 LBRACK exp:_3 RBRACK {:
+		RESULT = new Absyn.SubscriptVar(
+			(Absyn.Var)_1,
+			(Absyn.Exp)_3,
+			P()
+		);
+	:}
+;
